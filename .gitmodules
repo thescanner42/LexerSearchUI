@@ -1,0 +1,3 @@
+[submodule "LexerSearch"]
+	path = LexerSearch
+	url = https://github.com/thescanner42/LexerSearch.git
