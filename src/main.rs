@@ -376,6 +376,8 @@ impl Component for App {
                             }
                         }
                     }>{"Docs"}</button>
+
+                    <span style="margin-left:auto;">{format!("LexerSearch v{}", env!("CARGO_PKG_VERSION"))}</span>
                 </div>
 
                 { self.error.as_ref().map(|err| html! {
