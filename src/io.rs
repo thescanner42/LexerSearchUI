@@ -210,6 +210,7 @@ impl PlaygroundConfig {
             default_max_concurrent_matches(),
             default_max_token_length(),
             default_group_cap(),
+            default_group_cap(),
         );
 
         let mut reader = std::io::Cursor::new(self.subject);
