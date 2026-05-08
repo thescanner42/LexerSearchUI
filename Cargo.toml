@@ -1,6 +1,6 @@
 [package]
 name = "LexerSearchUI"
-version = "2.2.2"
+version = "3.0.0"
 edition = "2024"
 
 [dependencies]
@@ -12,7 +12,7 @@ web-sys = {version = "0.3.85", features = ["HtmlSelectElement", "Navigator", "Cl
 js-sys = "0.3"
 
 serde = { version = "1.0.228", features = ["derive"] }
-bincode = { version = "2.0", features = ["serde"]}
+bincode = { version = "2.0", features = ["derive"]}
 serde_yml = "0.0.12"
 serde_json = "1.0.149"
 
@@ -20,6 +20,9 @@ lexer-search-lib = { path = "./LexerSearch/lexer-search-lib" }
 zstd = "0.13.3"
 serde-wasm-bindgen = "0.6.5"
 base-x = "0.2.11"
+
+# lexer-search-lib compat for wasm
+getrandom = { version = "0.4", features = ["wasm_js"] }
 
 [build-dependencies]
 serde = { version = "1.0.228", features = ["derive"] }

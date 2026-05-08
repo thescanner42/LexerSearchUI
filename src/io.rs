@@ -3,7 +3,8 @@ use std::{collections::BTreeMap, num::NonZeroUsize};
 use base_x::{DecodeError, decode, encode};
 use lexer_search_lib::{
     engine::{
-        matcher::{FullMatch, Matcher, Trie},
+        graph::{GraphBuilder, GroupInfo},
+        matcher::{FullMatch, Matcher},
         matchers::{make_c_like_lexer, make_python_like_lexer, make_rust_like_lexer},
     },
     io::Language,
@@ -38,7 +39,7 @@ fn default_group_cap() -> NonZeroUsize {
 type Playgroundlhs = Vec<MatchingUnit>;
 
 /// the DTO that is used to serialize and deserialize from the url part
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, bincode::Encode, bincode::Decode, Debug)]
 pub struct PlaygroundConfig {
     /// the content to scan
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -50,12 +51,17 @@ pub struct PlaygroundConfig {
     pub lhs: Playgroundlhs,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, bincode::Encode, bincode::Decode, Debug)]
 pub struct MatchingUnit {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub patterns: Vec<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub name: String,
-    pub group: String,
+    #[serde(default, skip_serializing_if = "GroupInfo::is_default")]
+    pub group: GroupInfo,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub out: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub transform: BTreeMap<String, String>,
 }
 
@@ -65,13 +71,16 @@ impl Default for PlaygroundConfig {
             subject: "let x = \"hi\";\nprintln!(\"{x}\");".to_string(),
             language: Language::Rust,
             lhs: vec![MatchingUnit {
-                patterns: vec!["&_VAR = $_STR;\n..}\nprintln!($_FMT)".to_string()],
+                patterns: vec!["$_VAR = $_STR;\n..}\nprintln!($_FMT)".to_string()],
                 name: "hello_world".to_string(),
-                group: "".to_string(),
-                out: Default::default(),
+                group: Default::default(),
+                out: BTreeMap::from([(
+                    "key".to_string(),
+                    "value".to_string(),
+                )]),
                 transform: BTreeMap::from([(
                     "_FMT".to_string(),
-                    "^\\{(?<_VAR>[^}]+)}$".to_string(),
+                    "^\\\"\\{(?<_VAR>[^}]+)}\\\"$".to_string(),
                 )]),
             }],
         }
@@ -82,7 +91,7 @@ pub const PUBLIC_URL: &'static str = include_str!("../target/lexer-search-ui-pub
 
 impl PlaygroundConfig {
     pub fn to_url_str(&self) -> String {
-        let bin = bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap();
+        let bin = bincode::encode_to_vec(self, bincode::config::standard()).unwrap();
         let compressed = zstd::encode_all(&bin[..], 22).unwrap();
 
         encode_bytes(&compressed)
@@ -90,7 +99,7 @@ impl PlaygroundConfig {
 
     pub fn from_url_str(mut s: &str) -> Result<Self, String> {
         if s.len() <= PUBLIC_URL.len() {
-            return Ok(Default::default())
+            return Ok(Default::default());
         }
         if s.starts_with(PUBLIC_URL) {
             s = &s[PUBLIC_URL.len()..];
@@ -106,7 +115,7 @@ impl PlaygroundConfig {
         };
 
         let cfg =
-            match bincode::serde::decode_from_slice(&decompressed, bincode::config::standard()) {
+            match bincode::decode_from_slice(&decompressed, bincode::config::standard()) {
                 Ok(v) => v,
                 Err(e) => return Err(e.to_string()),
             };
@@ -173,7 +182,7 @@ impl PlaygroundConfig {
                 .collect()
         }
 
-        let mut trie = Trie::default();
+        let mut graph = GraphBuilder::default();
         for unit in self.lhs {
             for pattern in unit.patterns {
                 let mut reader = std::io::Cursor::new(pattern);
@@ -193,7 +202,7 @@ impl PlaygroundConfig {
                     }
                 };
 
-                trie.add_pattern(
+                graph.add_pattern(
                     &mut reader,
                     &convert_out(unit.out.clone()),
                     unit.name.clone(),
@@ -205,8 +214,10 @@ impl PlaygroundConfig {
             }
         }
 
+        let graph = graph.build()?;
+
         let mut matcher = Matcher::new(
-            &trie,
+            &graph,
             default_max_concurrent_matches(),
             default_max_token_length(),
             default_group_cap(),
