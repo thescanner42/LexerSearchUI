@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "LexerSearchUI"
-version = "3.1.1"
+version = "3.2.0"
 dependencies = [
  "base-x",
  "bincode 2.0.1",
@@ -783,7 +783,7 @@ checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
 name = "lexer-search-lib"
-version = "3.1.1"
+version = "3.2.0"
 dependencies = [
  "bincode 2.0.1",
  "blake3",
