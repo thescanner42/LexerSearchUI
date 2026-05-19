@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, num::NonZeroUsize};
+use std::collections::BTreeMap;
 
 use base_x::{DecodeError, decode, encode};
 use lexer_search_lib::{
@@ -8,7 +8,7 @@ use lexer_search_lib::{
         matchers::{make_c_like_lexer, make_python_like_lexer, make_rust_like_lexer},
     },
     io::Language,
-    lexer::EnumLexer,
+    lexer::{DEFAULT_MAX_CONCURRENT_MATCHES, DEFAULT_MAX_DISTINCT_GROUPS, DEFAULT_MAX_GROUP_MEMORY, DEFAULT_MAX_TOKEN_LENGTH, DEFAULT_MAX_UNIQUE_EXPANSIONS, EnumLexer},
 };
 use serde::{Deserialize, Serialize};
 
@@ -21,19 +21,6 @@ pub fn encode_bytes(data: &[u8]) -> String {
 
 pub fn decode_bytes(s: &str) -> Result<Vec<u8>, DecodeError> {
     decode(ALPHABET, s)
-}
-
-// Default functions
-fn default_max_concurrent_matches() -> usize {
-    5000
-}
-
-fn default_max_token_length() -> NonZeroUsize {
-    5000.try_into().unwrap()
-}
-
-fn default_group_cap() -> NonZeroUsize {
-    NonZeroUsize::new(10).unwrap()
 }
 
 type Playgroundlhs = Vec<MatchingUnit>;
@@ -188,17 +175,17 @@ impl PlaygroundConfig {
                 let mut reader = std::io::Cursor::new(pattern);
                 let lexer: EnumLexer = match self.language {
                     Language::C | Language::Cpp | Language::CSharp | Language::Java => {
-                        EnumLexer::CLike(make_c_like_lexer(false, true, default_max_token_length()))
+                        EnumLexer::CLike(make_c_like_lexer(false, true, DEFAULT_MAX_TOKEN_LENGTH))
                     }
                     Language::Go | Language::Js | Language::Ts | Language::Kotlin => {
-                        EnumLexer::CLike(make_c_like_lexer(true, true, default_max_token_length()))
+                        EnumLexer::CLike(make_c_like_lexer(true, true, DEFAULT_MAX_TOKEN_LENGTH))
                     }
                     Language::Py => EnumLexer::PythonLike(make_python_like_lexer(
                         true,
-                        default_max_token_length(),
+                        DEFAULT_MAX_TOKEN_LENGTH,
                     )),
                     Language::Rust => {
-                        EnumLexer::RustLike(make_rust_like_lexer(true, default_max_token_length()))
+                        EnumLexer::RustLike(make_rust_like_lexer(true, DEFAULT_MAX_TOKEN_LENGTH))
                     }
                 };
 
@@ -209,7 +196,7 @@ impl PlaygroundConfig {
                     unit.group.clone(),
                     &convert_transform(unit.transform.clone()),
                     lexer,
-                    default_max_token_length(),
+                    DEFAULT_MAX_TOKEN_LENGTH,
                 )?;
             }
         }
@@ -218,25 +205,26 @@ impl PlaygroundConfig {
 
         let mut matcher = Matcher::new(
             &graph,
-            default_max_concurrent_matches(),
-            default_max_token_length(),
-            default_group_cap(),
-            default_group_cap(),
+            DEFAULT_MAX_CONCURRENT_MATCHES,
+            DEFAULT_MAX_TOKEN_LENGTH,
+            DEFAULT_MAX_DISTINCT_GROUPS,
+            DEFAULT_MAX_GROUP_MEMORY,
+            DEFAULT_MAX_UNIQUE_EXPANSIONS
         );
 
         let mut reader = std::io::Cursor::new(self.subject);
         let lexer: EnumLexer = match self.language {
             Language::C | Language::Cpp | Language::CSharp | Language::Java => {
-                EnumLexer::CLike(make_c_like_lexer(false, false, default_max_token_length()))
+                EnumLexer::CLike(make_c_like_lexer(false, false, DEFAULT_MAX_TOKEN_LENGTH))
             }
             Language::Go | Language::Js | Language::Ts | Language::Kotlin => {
-                EnumLexer::CLike(make_c_like_lexer(true, false, default_max_token_length()))
+                EnumLexer::CLike(make_c_like_lexer(true, false, DEFAULT_MAX_TOKEN_LENGTH))
             }
             Language::Py => {
-                EnumLexer::PythonLike(make_python_like_lexer(false, default_max_token_length()))
+                EnumLexer::PythonLike(make_python_like_lexer(false, DEFAULT_MAX_TOKEN_LENGTH))
             }
             Language::Rust => {
-                EnumLexer::RustLike(make_rust_like_lexer(false, default_max_token_length()))
+                EnumLexer::RustLike(make_rust_like_lexer(false, DEFAULT_MAX_TOKEN_LENGTH))
             }
         };
 
