@@ -8,7 +8,10 @@ use lexer_search_lib::{
         matchers::{make_c_like_lexer, make_python_like_lexer, make_rust_like_lexer},
     },
     io::Language,
-    lexer::{DEFAULT_MAX_CONCURRENT_MATCHES, DEFAULT_MAX_DISTINCT_GROUPS, DEFAULT_MAX_GROUP_MEMORY, DEFAULT_MAX_TOKEN_LENGTH, DEFAULT_MAX_UNIQUE_EXPANSIONS, EnumLexer},
+    lexer::{
+        DEFAULT_MAX_CONCURRENT_MATCHES, DEFAULT_MAX_DISTINCT_GROUPS, DEFAULT_MAX_EXPANSIONS,
+        DEFAULT_MAX_GROUP_MEMORY, DEFAULT_MAX_TOKEN_LENGTH, EnumLexer,
+    },
 };
 use serde::{Deserialize, Serialize};
 
@@ -50,6 +53,8 @@ pub struct MatchingUnit {
     pub out: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub transform: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub templates: BTreeMap<String, Vec<String>>,
 }
 
 impl Default for PlaygroundConfig {
@@ -61,14 +66,12 @@ impl Default for PlaygroundConfig {
                 patterns: vec!["$_VAR = $_STR;\n..}\nprintln!($_FMT)".to_string()],
                 name: "hello_world".to_string(),
                 group: Default::default(),
-                out: BTreeMap::from([(
-                    "key".to_string(),
-                    "value".to_string(),
-                )]),
+                out: BTreeMap::from([("key".to_string(), "value".to_string())]),
                 transform: BTreeMap::from([(
                     "_FMT".to_string(),
                     "^\\\"\\{(?<_VAR>[^}]+)}\\\"$".to_string(),
                 )]),
+                templates: Default::default(),
             }],
         }
     }
@@ -101,11 +104,10 @@ impl PlaygroundConfig {
             Err(e) => return Err(e.to_string()),
         };
 
-        let cfg =
-            match bincode::decode_from_slice(&decompressed, bincode::config::standard()) {
-                Ok(v) => v,
-                Err(e) => return Err(e.to_string()),
-            };
+        let cfg = match bincode::decode_from_slice(&decompressed, bincode::config::standard()) {
+            Ok(v) => v,
+            Err(e) => return Err(e.to_string()),
+        };
         Ok(cfg.0)
     }
 
@@ -169,35 +171,66 @@ impl PlaygroundConfig {
                 .collect()
         }
 
+        fn convert_templates(
+            input: BTreeMap<String, Vec<String>>,
+        ) -> BTreeMap<Box<[u8]>, Vec<Box<[u8]>>> {
+            input
+                .into_iter()
+                .map(|(k, v)| {
+                    (
+                        k.into_bytes().into_boxed_slice(),
+                        v.into_iter()
+                            .map(|s| s.into_bytes().into_boxed_slice())
+                            .collect(),
+                    )
+                })
+                .collect()
+        }
+
         let mut graph = GraphBuilder::default();
         for unit in self.lhs {
-            for pattern in unit.patterns {
-                let mut reader = std::io::Cursor::new(pattern);
-                let lexer: EnumLexer = match self.language {
-                    Language::C | Language::Cpp | Language::CSharp | Language::Java => {
-                        EnumLexer::CLike(make_c_like_lexer(false, true, DEFAULT_MAX_TOKEN_LENGTH))
-                    }
-                    Language::Go | Language::Js | Language::Ts | Language::Kotlin => {
-                        EnumLexer::CLike(make_c_like_lexer(true, true, DEFAULT_MAX_TOKEN_LENGTH))
-                    }
-                    Language::Py => EnumLexer::PythonLike(make_python_like_lexer(
-                        true,
-                        DEFAULT_MAX_TOKEN_LENGTH,
-                    )),
-                    Language::Rust => {
-                        EnumLexer::RustLike(make_rust_like_lexer(true, DEFAULT_MAX_TOKEN_LENGTH))
-                    }
-                };
+            for unexpanded_pattern in unit.patterns {
+                for pattern in lexer_search_lib::engine::template::expand(
+                    unexpanded_pattern.as_bytes(),
+                    &convert_templates(unit.templates.clone()),
+                    DEFAULT_MAX_EXPANSIONS,
+                )? {
+                    let mut reader = std::io::Cursor::new(pattern);
+                    let lexer: EnumLexer = match self.language {
+                        Language::C | Language::Cpp | Language::CSharp | Language::Java => {
+                            EnumLexer::CLike(make_c_like_lexer(
+                                false,
+                                true,
+                                DEFAULT_MAX_TOKEN_LENGTH,
+                            ))
+                        }
+                        Language::Go | Language::Js | Language::Ts | Language::Kotlin => {
+                            EnumLexer::CLike(make_c_like_lexer(
+                                true,
+                                true,
+                                DEFAULT_MAX_TOKEN_LENGTH,
+                            ))
+                        }
+                        Language::Py => EnumLexer::PythonLike(make_python_like_lexer(
+                            true,
+                            DEFAULT_MAX_TOKEN_LENGTH,
+                        )),
+                        Language::Rust => EnumLexer::RustLike(make_rust_like_lexer(
+                            true,
+                            DEFAULT_MAX_TOKEN_LENGTH,
+                        )),
+                    };
 
-                graph.add_pattern(
-                    &mut reader,
-                    &convert_out(unit.out.clone()),
-                    unit.name.clone(),
-                    unit.group.clone(),
-                    &convert_transform(unit.transform.clone()),
-                    lexer,
-                    DEFAULT_MAX_TOKEN_LENGTH,
-                )?;
+                    graph.add_pattern(
+                        &mut reader,
+                        &convert_out(unit.out.clone()),
+                        unit.name.clone(),
+                        unit.group.clone(),
+                        &convert_transform(unit.transform.clone()),
+                        lexer,
+                        DEFAULT_MAX_TOKEN_LENGTH,
+                    )?;
+                }
             }
         }
 
@@ -209,7 +242,7 @@ impl PlaygroundConfig {
             DEFAULT_MAX_TOKEN_LENGTH,
             DEFAULT_MAX_DISTINCT_GROUPS,
             DEFAULT_MAX_GROUP_MEMORY,
-            DEFAULT_MAX_UNIQUE_EXPANSIONS
+            DEFAULT_MAX_EXPANSIONS,
         );
 
         let mut reader = std::io::Cursor::new(self.subject);
