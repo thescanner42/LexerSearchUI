@@ -1,6 +1,6 @@
 [package]
 name = "LexerSearchUI"
-version = "3.4.1"
+version = "3.5.1"
 edition = "2024"
 
 [dependencies]
@@ -22,7 +22,7 @@ serde-wasm-bindgen = "0.6.5"
 base-x = "0.2.11"
 
 # lexer-search-lib compat for wasm
-getrandom = { version = "0.4", features = ["wasm_js"] }
+getrandom = { version = "0.3.4", features = ["wasm_js"] }
 
 [build-dependencies]
 serde = { version = "1.0.228", features = ["derive"] }

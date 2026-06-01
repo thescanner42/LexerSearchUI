@@ -133,8 +133,7 @@ impl PlaygroundConfig {
 
     fn monaco_language(&self) -> &'static str {
         match self.language {
-            Language::C => "c",
-            Language::Cpp => "cpp",
+            Language::C => "cpp",
             Language::CSharp => "csharp",
             Language::Go => "go",
             Language::Java => "java",
@@ -197,7 +196,7 @@ impl PlaygroundConfig {
                 )? {
                     let mut reader = std::io::Cursor::new(pattern);
                     let lexer: EnumLexer = match self.language {
-                        Language::C | Language::Cpp | Language::CSharp | Language::Java => {
+                        Language::C | Language::CSharp | Language::Java => {
                             EnumLexer::CLike(make_c_like_lexer(
                                 false,
                                 true,
@@ -247,7 +246,7 @@ impl PlaygroundConfig {
 
         let mut reader = std::io::Cursor::new(self.subject);
         let lexer: EnumLexer = match self.language {
-            Language::C | Language::Cpp | Language::CSharp | Language::Java => {
+            Language::C | Language::CSharp | Language::Java => {
                 EnumLexer::CLike(make_c_like_lexer(false, false, DEFAULT_MAX_TOKEN_LENGTH))
             }
             Language::Go | Language::Js | Language::Ts | Language::Kotlin => {
