@@ -19,10 +19,10 @@ jobs:
           submodules: recursive
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.93.0
 
       - name: Install Trunk
-        run: cargo install trunk
+        run: cargo install trunk --version 0.21.14 --locked
 
       - name: Add wasm target
         run: rustup target add wasm32-unknown-unknown

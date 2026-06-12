@@ -109,6 +109,7 @@ enum Msg {
     LanguageChanged(String),
     CopyShareLink,
     Run,
+    ClearHighlights,
 }
 
 // --------------------
@@ -322,6 +323,21 @@ impl Component for App {
 
                 false
             }
+            Msg::ClearHighlights => {
+                if let Some(editor_link) = &*self.rhs_editor.borrow() {
+                    editor_link.with_editor(|editor_api: &monaco::api::CodeEditor| {
+                        let js_editor: &JsValue = editor_api.as_ref();
+
+                        let empty: Vec<HighlightElement> = Vec::new();
+                        let js_elements = serde_wasm_bindgen::to_value(&empty)
+                            .expect("failed to serialize highlights");
+
+                        highlight_ranges_js(js_editor, &js_elements);
+                    });
+                }
+
+                false
+            }
         }
     }
 
@@ -350,6 +366,10 @@ impl Component for App {
                     gap:10px;
                 ">
                     <button onclick={ctx.link().callback(|_| Msg::Run)}>{"Run"}</button>
+
+                    <button onclick={ctx.link().callback(|_| Msg::ClearHighlights)}>
+                        {"Clear"}
+                    </button>
 
                     <select onchange={on_language_change}>
                         <option value="c" selected={self.current_language == "c"}>{"C"}</option>

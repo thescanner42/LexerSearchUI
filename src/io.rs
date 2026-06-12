@@ -60,17 +60,14 @@ pub struct MatchingUnit {
 impl Default for PlaygroundConfig {
     fn default() -> Self {
         PlaygroundConfig {
-            subject: "let x = \"hi\";\nprintln!(\"{x}\");".to_string(),
+            subject: "// click the \"Docs\" button above!\nhello_world(\"test\");".to_string(),
             language: Language::Rust,
             lhs: vec![MatchingUnit {
-                patterns: vec!["$_VAR = $_STR;\n..}\nprintln!($_FMT)".to_string()],
-                name: "hello_world".to_string(),
+                patterns: vec!["hello_world(... $CAPTURE ...)".to_string()],
+                name: "hi".to_string(),
                 group: Default::default(),
-                out: BTreeMap::from([("key".to_string(), "value".to_string())]),
-                transform: BTreeMap::from([(
-                    "_FMT".to_string(),
-                    "^\\\"\\{(?<_VAR>[^}]+)}\\\"$".to_string(),
-                )]),
+                out: Default::default(),
+                transform: Default::default(),
                 templates: Default::default(),
             }],
         }
